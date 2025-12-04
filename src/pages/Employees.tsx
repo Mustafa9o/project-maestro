@@ -30,6 +30,7 @@ import {
   Users,
   UserCheck,
   UserX,
+  Download,
 } from "lucide-react";
 
 interface Employee {
@@ -192,6 +193,33 @@ const Employees = () => {
     setInviteDialogOpen(false);
   };
 
+  const handleDownload = () => {
+    const headers = ["Name", "Email", "Phone", "Role", "Department", "Status", "Join Date", "Tasks Completed", "Projects"];
+    const csvContent = [
+      headers.join(","),
+      ...filteredEmployees.map((emp) =>
+        [
+          `"${emp.name}"`,
+          `"${emp.email}"`,
+          `"${emp.phone}"`,
+          `"${emp.role}"`,
+          `"${emp.department}"`,
+          emp.status,
+          emp.joinDate,
+          emp.tasksCompleted,
+          emp.projectsCount,
+        ].join(",")
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "employees.csv";
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -205,13 +233,22 @@ const Employees = () => {
           </p>
         </div>
 
-        <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-sidebar-bg hover:bg-sidebar-bg/90 text-white gap-2">
-              <UserPlus className="w-4 h-4" />
-              Invite Member
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={handleDownload}
+          >
+            <Download className="w-4 h-4" />
+            Download
+          </Button>
+          <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-sidebar-bg hover:bg-sidebar-bg/90 text-white gap-2">
+                <UserPlus className="w-4 h-4" />
+                Invite Member
+              </Button>
+            </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="font-cairo">Invite New Member</DialogTitle>
@@ -267,6 +304,7 @@ const Employees = () => {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Stats Cards */}
