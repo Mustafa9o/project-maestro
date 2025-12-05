@@ -7,6 +7,8 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import Index from "./pages/Index";
 import Tasks from "./pages/Tasks";
 import Employees from "./pages/Employees";
+import CalendarPage from "./pages/CalendarPage";
+import ChatPage from "./pages/ChatPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,10 +24,10 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/tasks" element={<Tasks />} />
             <Route path="/project/:id" element={<Tasks />} />
-            <Route path="/calendar" element={<Index />} />
+            <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/files" element={<Index />} />
             <Route path="/todo" element={<Index />} />
-            <Route path="/chat" element={<Index />} />
+            <Route path="/chat" element={<ChatPage />} />
             <Route path="/meetings" element={<Index />} />
             <Route path="/employees" element={<Employees />} />
             <Route path="/help" element={<Index />} />

@@ -6,13 +6,13 @@ import {
   Star,
   Users,
   MoreHorizontal,
-  Plus,
   ChevronDown,
   ChevronRight,
   FolderOpen,
   Calendar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CreateBoardTaskMenu } from "@/components/CreateBoardTaskMenu";
 
 interface ProjectItem {
   id: string;
@@ -84,10 +84,7 @@ export function LeftSidebar() {
 
       {/* Create Board/Task Button */}
       <div className="p-4">
-        <button className="w-full flex items-center justify-between p-3 rounded-lg border border-dashed border-sidebar-foreground/30 text-sidebar-foreground hover:bg-sidebar-hover transition-colors">
-          <span className="text-sm font-medium">Create board/task</span>
-          <Plus className="w-4 h-4" />
-        </button>
+        <CreateBoardTaskMenu />
       </div>
 
       {/* Filter Tabs */}
