@@ -19,14 +19,16 @@ import {
 } from "@/components/ui/select";
 import {
   Search,
-  UserPlus,
   Mail,
-  Phone,
   Users,
   Plus,
   X,
+  UserPlus,
+  Trash2,
+  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "@/hooks/use-toast";
 
 interface Employee {
   id: string;
@@ -39,16 +41,17 @@ interface Employee {
   initials: string;
   avatarColor: string;
   lastLogin: string;
+  teamIds: string[];
 }
 
 interface Team {
   id: string;
   name: string;
   owner: string;
-  memberCount: number;
+  memberIds: string[];
 }
 
-const mockEmployees: Employee[] = [
+const initialEmployees: Employee[] = [
   {
     id: "1",
     name: "Abdullah",
@@ -59,6 +62,7 @@ const mockEmployees: Employee[] = [
     initials: "AB",
     avatarColor: "bg-blue-500",
     lastLogin: "4 Dec, 2025 3:28 pm",
+    teamIds: ["1"],
   },
   {
     id: "2",
@@ -70,6 +74,7 @@ const mockEmployees: Employee[] = [
     initials: "MA",
     avatarColor: "bg-green-500",
     lastLogin: "30 Nov, 2025 12:08 pm",
+    teamIds: ["2"],
   },
   {
     id: "3",
@@ -81,6 +86,7 @@ const mockEmployees: Employee[] = [
     initials: "MA",
     avatarColor: "bg-teal-500",
     lastLogin: "2 Dec, 2025 2:11 pm",
+    teamIds: ["2"],
   },
   {
     id: "4",
@@ -92,6 +98,7 @@ const mockEmployees: Employee[] = [
     initials: "اب",
     avatarColor: "bg-purple-500",
     lastLogin: "4 Dec, 2025 10:54 am",
+    teamIds: ["1"],
   },
   {
     id: "5",
@@ -103,6 +110,7 @@ const mockEmployees: Employee[] = [
     initials: "رو",
     avatarColor: "bg-orange-500",
     lastLogin: "4 Dec, 2025 9:24 am",
+    teamIds: ["2"],
   },
   {
     id: "6",
@@ -114,6 +122,7 @@ const mockEmployees: Employee[] = [
     initials: "غا",
     avatarColor: "bg-green-600",
     lastLogin: "2 Dec, 2025 8:40 am",
+    teamIds: ["2"],
   },
   {
     id: "7",
@@ -122,42 +131,44 @@ const mockEmployees: Employee[] = [
     phone: "+966-539133770",
     role: "اخصائي شؤون قانونية",
     department: "Legal",
-    initials: "MUNERA\nALISMAIL",
+    initials: "MS",
     avatarColor: "bg-orange-600",
     lastLogin: "4 Dec, 2025 1:30 pm",
+    teamIds: ["1"],
   },
   {
     id: "8",
     name: "هنادي الزمامي",
     email: "legal@ratio.sa",
     phone: "+966-545220541",
-    role: "",
+    role: "Manager",
     department: "Legal",
     avatar: "/teams2.png",
-    initials: "",
+    initials: "HZ",
     avatarColor: "bg-teal-400",
     lastLogin: "5 Dec, 2025 10:51 am",
+    teamIds: ["1", "2", "3"],
   },
 ];
 
-const mockTeams: Team[] = [
+const initialTeams: Team[] = [
   {
     id: "1",
     name: "الشؤون القانونية",
     owner: "هنادي الزمامي",
-    memberCount: 4,
+    memberIds: ["1", "4", "7", "8"],
   },
   {
     id: "2",
     name: "الموارد البشرية",
     owner: "هنادي الزمامي",
-    memberCount: 5,
+    memberIds: ["2", "3", "5", "6", "8"],
   },
   {
     id: "3",
     name: "تقنية معلومات",
     owner: "هنادي الزمامي",
-    memberCount: 1,
+    memberIds: ["8"],
   },
 ];
 
@@ -169,8 +180,14 @@ const Employees = () => {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("");
+  const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
+  const [teams, setTeams] = useState<Team[]>(initialTeams);
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+  const [teamModalOpen, setTeamModalOpen] = useState(false);
+  const [createTeamOpen, setCreateTeamOpen] = useState(false);
+  const [newTeamName, setNewTeamName] = useState("");
 
-  const filteredEmployees = mockEmployees.filter((emp) => {
+  const filteredEmployees = employees.filter((emp) => {
     return (
       emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       emp.email.toLowerCase().includes(searchQuery.toLowerCase())
@@ -178,15 +195,89 @@ const Employees = () => {
   });
 
   const handleInvite = () => {
-    console.log("Inviting:", { email: inviteEmail, role: inviteRole });
+    toast({ title: "Invitation sent", description: `Invited ${inviteEmail}` });
     setInviteEmail("");
     setInviteRole("");
     setInviteDialogOpen(false);
   };
 
+  const getTeamMembers = (team: Team) => {
+    return employees.filter((emp) => team.memberIds.includes(emp.id));
+  };
+
+  const getNonTeamMembers = (team: Team) => {
+    return employees.filter((emp) => !team.memberIds.includes(emp.id));
+  };
+
+  const addMemberToTeam = (teamId: string, employeeId: string) => {
+    setTeams((prev) =>
+      prev.map((t) =>
+        t.id === teamId
+          ? { ...t, memberIds: [...t.memberIds, employeeId] }
+          : t
+      )
+    );
+    setEmployees((prev) =>
+      prev.map((e) =>
+        e.id === employeeId
+          ? { ...e, teamIds: [...e.teamIds, teamId] }
+          : e
+      )
+    );
+    toast({ title: "Member added", description: "Team member added successfully" });
+  };
+
+  const removeMemberFromTeam = (teamId: string, employeeId: string) => {
+    setTeams((prev) =>
+      prev.map((t) =>
+        t.id === teamId
+          ? { ...t, memberIds: t.memberIds.filter((id) => id !== employeeId) }
+          : t
+      )
+    );
+    setEmployees((prev) =>
+      prev.map((e) =>
+        e.id === employeeId
+          ? { ...e, teamIds: e.teamIds.filter((id) => id !== teamId) }
+          : e
+      )
+    );
+    toast({ title: "Member removed", description: "Team member removed successfully" });
+  };
+
+  const deleteTeam = (teamId: string) => {
+    setTeams((prev) => prev.filter((t) => t.id !== teamId));
+    setEmployees((prev) =>
+      prev.map((e) => ({
+        ...e,
+        teamIds: e.teamIds.filter((id) => id !== teamId),
+      }))
+    );
+    toast({ title: "Team deleted", description: "Team has been removed" });
+  };
+
+  const createTeam = () => {
+    if (!newTeamName.trim()) return;
+    const newTeam: Team = {
+      id: `team-${Date.now()}`,
+      name: newTeamName,
+      owner: "هنادي الزمامي",
+      memberIds: [],
+    };
+    setTeams((prev) => [...prev, newTeam]);
+    setNewTeamName("");
+    setCreateTeamOpen(false);
+    toast({ title: "Team created", description: `${newTeamName} has been created` });
+  };
+
+  const openTeamManagement = (team: Team) => {
+    setSelectedTeam(team);
+    setTeamModalOpen(true);
+  };
+
   const tabs = [
-    { id: "everyone" as TabType, label: "Everyone at Ratio", count: 8, icon: Users },
-    { id: "teams" as TabType, label: "Teams", count: 3, icon: Users },
+    { id: "everyone" as TabType, label: "Everyone at Ratio", count: employees.length, icon: Users },
+    { id: "teams" as TabType, label: "Teams", count: teams.length, icon: Users },
     { id: "invitations" as TabType, label: "Invitations", count: 0, icon: Mail },
     { id: "clients" as TabType, label: "Clients", count: 0, icon: Users },
   ];
@@ -295,28 +386,13 @@ const Employees = () => {
                       {employee.avatar ? (
                         <AvatarImage src={employee.avatar} />
                       ) : (
-                        <AvatarFallback
-                          className={cn(
-                            "text-white text-lg font-semibold",
-                            employee.avatarColor
-                          )}
-                        >
-                          {employee.initials.includes("\n") ? (
-                            <div className="text-[8px] text-center leading-tight font-bold">
-                              {employee.initials.split("\n").map((line, i) => (
-                                <div key={i}>{line}</div>
-                              ))}
-                            </div>
-                          ) : (
-                            employee.initials
-                          )}
+                        <AvatarFallback className={cn("text-white text-lg font-semibold", employee.avatarColor)}>
+                          {employee.initials}
                         </AvatarFallback>
                       )}
                     </Avatar>
                     <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-status-completed rounded-full flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                        <circle cx="12" cy="12" r="3" fill="currentColor" />
-                      </svg>
+                      <div className="w-2 h-2 bg-white rounded-full" />
                     </div>
                   </div>
                 </div>
@@ -348,7 +424,7 @@ const Employees = () => {
                   variant="outline"
                   className="w-full mt-4 text-chart-orange border-chart-orange/30 hover:bg-chart-orange/10"
                 >
-                  Teams
+                  Teams ({employee.teamIds.length})
                 </Button>
               </CardContent>
             </Card>
@@ -359,19 +435,48 @@ const Employees = () => {
       {activeTab === "teams" && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {/* Create New Team Card */}
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow bg-sidebar-bg border-0 min-h-[280px] flex items-center justify-center">
-            <CardContent className="flex flex-col items-center justify-center gap-4 p-6">
-              <div className="w-16 h-16 rounded-full border-2 border-dashed border-white/50 flex items-center justify-center">
-                <Plus className="w-8 h-8 text-white/70" />
+          <Dialog open={createTeamOpen} onOpenChange={setCreateTeamOpen}>
+            <DialogTrigger asChild>
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow bg-sidebar-bg border-0 min-h-[280px] flex items-center justify-center">
+                <CardContent className="flex flex-col items-center justify-center gap-4 p-6">
+                  <div className="w-16 h-16 rounded-full border-2 border-dashed border-white/50 flex items-center justify-center">
+                    <Plus className="w-8 h-8 text-white/70" />
+                  </div>
+                  <span className="text-white font-medium">Create New Team</span>
+                </CardContent>
+              </Card>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Create New Team</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Team Name</label>
+                  <Input
+                    placeholder="Enter team name"
+                    value={newTeamName}
+                    onChange={(e) => setNewTeamName(e.target.value)}
+                  />
+                </div>
+                <Button
+                  className="w-full bg-sidebar-bg hover:bg-sidebar-bg/90"
+                  onClick={createTeam}
+                  disabled={!newTeamName.trim()}
+                >
+                  Create Team
+                </Button>
               </div>
-              <span className="text-white font-medium">Create New Team</span>
-            </CardContent>
-          </Card>
+            </DialogContent>
+          </Dialog>
 
           {/* Team Cards */}
-          {mockTeams.map((team) => (
+          {teams.map((team) => (
             <Card key={team.id} className="hover:shadow-lg transition-shadow relative border-2 border-status-completed">
-              <button className="absolute top-2 right-2 w-5 h-5 bg-destructive rounded-full flex items-center justify-center">
+              <button
+                onClick={() => deleteTeam(team.id)}
+                className="absolute top-2 right-2 w-5 h-5 bg-destructive rounded-full flex items-center justify-center hover:bg-destructive/80"
+              >
                 <X className="w-3 h-3 text-white" />
               </button>
               <CardContent className="p-6 flex flex-col items-center">
@@ -383,12 +488,13 @@ const Employees = () => {
                 {/* Team Name */}
                 <h3 className="font-semibold text-foreground text-lg mb-1">{team.name}</h3>
                 <p className="text-sm text-muted-foreground mb-1">Owner: {team.owner}</p>
-                <p className="text-sm text-foreground">{team.memberCount} Members</p>
+                <p className="text-sm text-foreground">{team.memberIds.length} Members</p>
 
-                {/* Add More Button */}
+                {/* Manage Team Button */}
                 <Button
                   variant="outline"
                   className="w-full mt-4 text-chart-orange border-chart-orange/30 hover:bg-chart-orange/10"
+                  onClick={() => openTeamManagement(team)}
                 >
                   Add More
                 </Button>
@@ -413,6 +519,109 @@ const Employees = () => {
           <p className="text-sm text-muted-foreground">Your clients will appear here</p>
         </div>
       )}
+
+      {/* Team Management Modal */}
+      <Dialog open={teamModalOpen} onOpenChange={setTeamModalOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Manage Team: {selectedTeam?.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedTeam && (
+            <div className="flex-1 overflow-auto space-y-6 py-4">
+              {/* Current Members */}
+              <div>
+                <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Current Members ({getTeamMembers(selectedTeam).length})
+                </h4>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {getTeamMembers(selectedTeam).map((member) => (
+                    <div
+                      key={member.id}
+                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Avatar className="w-10 h-10">
+                          {member.avatar ? (
+                            <AvatarImage src={member.avatar} />
+                          ) : (
+                            <AvatarFallback className={cn("text-white text-sm", member.avatarColor)}>
+                              {member.initials}
+                            </AvatarFallback>
+                          )}
+                        </Avatar>
+                        <div>
+                          <p className="font-medium text-foreground">{member.name}</p>
+                          <p className="text-sm text-muted-foreground">{member.role}</p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => removeMemberFromTeam(selectedTeam.id, member.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  {getTeamMembers(selectedTeam).length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">No members in this team</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Add Members */}
+              <div>
+                <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                  <UserPlus className="w-4 h-4" />
+                  Add Members
+                </h4>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {getNonTeamMembers(selectedTeam).map((member) => (
+                    <div
+                      key={member.id}
+                      className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Avatar className="w-10 h-10">
+                          {member.avatar ? (
+                            <AvatarImage src={member.avatar} />
+                          ) : (
+                            <AvatarFallback className={cn("text-white text-sm", member.avatarColor)}>
+                              {member.initials}
+                            </AvatarFallback>
+                          )}
+                        </Avatar>
+                        <div>
+                          <p className="font-medium text-foreground">{member.name}</p>
+                          <p className="text-sm text-muted-foreground">{member.role}</p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-status-completed hover:text-status-completed hover:bg-status-completed/10"
+                        onClick={() => addMemberToTeam(selectedTeam.id, member.id)}
+                      >
+                        <Check className="w-4 h-4 mr-1" />
+                        Add
+                      </Button>
+                    </div>
+                  ))}
+                  {getNonTeamMembers(selectedTeam).length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">All members are in this team</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
