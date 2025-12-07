@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Settings2,
   Users,
@@ -13,9 +13,37 @@ import {
   Building2,
   MessageSquare,
   Link2,
+  Edit2,
+  Trash2,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import { AddColumnDialog } from "@/components/tasks/AddColumnDialog";
+import {
+  NumberColumn,
+  EmailColumn,
+  RatingColumn,
+  PriorityColumn,
+  LocationColumn,
+  DateColumn,
+  TextColumn,
+} from "@/components/tasks/ColumnTypes";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "@/hooks/use-toast";
+
+interface CustomColumn {
+  id: string;
+  name: string;
+  column_type: string;
+  order_index: number;
+  settings?: any;
+}
 
 interface Task {
   id: string;
@@ -23,12 +51,7 @@ interface Task {
   subtasksCount: number;
   subtasksCompleted: number;
   assignees: { initials: string; color: string }[];
-  status: "completed" | "pending" | "in-progress" | "overdue";
-  statusLabel: string;
-  dueDate?: string;
-  dateRange?: string;
-  hasFile?: boolean;
-  hasComments?: boolean;
+  columnValues: Record<string, any>;
 }
 
 interface TaskGroup {
@@ -40,7 +63,7 @@ interface TaskGroup {
   tasks: Task[];
 }
 
-const taskGroups: TaskGroup[] = [
+const mockGroups: TaskGroup[] = [
   {
     id: "recruitment",
     name: "استقدام ونقل عمالة",
@@ -54,9 +77,7 @@ const taskGroups: TaskGroup[] = [
         subtasksCount: 4,
         subtasksCompleted: 0,
         assignees: [{ initials: "MA", color: "bg-teal-500" }],
-        status: "in-progress",
-        statusLabel: "جاري العمل",
-        dueDate: "23 Oct, 2025",
+        columnValues: {},
       },
       {
         id: "2",
@@ -64,63 +85,7 @@ const taskGroups: TaskGroup[] = [
         subtasksCount: 1,
         subtasksCompleted: 1,
         assignees: [{ initials: "MA", color: "bg-teal-500" }],
-        status: "completed",
-        statusLabel: "تم",
-        dateRange: "20-Oct - 30-Oct",
-      },
-      {
-        id: "3",
-        title: "احتساب نسبة الموظفين الذين عليهم تأمين صحي والمطابقة",
-        subtasksCount: 1,
-        subtasksCompleted: 0,
-        assignees: [{ initials: "", color: "bg-gray-400" }],
-        status: "completed",
-        statusLabel: "تم",
-      },
-      {
-        id: "4",
-        title: "عمل اتفاقيات عدم افصاح 6 موظفين",
-        subtasksCount: 0,
-        subtasksCompleted: 0,
-        assignees: [{ initials: "", color: "bg-gray-400" }],
-        status: "completed",
-        statusLabel: "تم",
-      },
-      {
-        id: "5",
-        title: "ترتيب مقابلات عذا الساعة 12 الظهر لسكرتر مدير التنفيذي بعد الفرز",
-        subtasksCount: 0,
-        subtasksCompleted: 0,
-        assignees: [{ initials: "", color: "bg-gray-400" }],
-        status: "completed",
-        statusLabel: "تم",
-      },
-      {
-        id: "6",
-        title: "عمل تأمين طبي ل36 موظف والتأكد من اصدارها",
-        subtasksCount: 0,
-        subtasksCompleted: 0,
-        assignees: [{ initials: "", color: "bg-gray-400" }],
-        status: "completed",
-        statusLabel: "تم",
-      },
-      {
-        id: "7",
-        title: "تأمين طبي لموظفين في ملكف الأكسل الجديد",
-        subtasksCount: 0,
-        subtasksCompleted: 0,
-        assignees: [{ initials: "", color: "bg-gray-400" }],
-        status: "completed",
-        statusLabel: "تم",
-      },
-      {
-        id: "8",
-        title: "التأكد من اصدار الفيزا الى استاذ عبداللطيف",
-        subtasksCount: 2,
-        subtasksCompleted: 0,
-        assignees: [{ initials: "", color: "bg-gray-400" }],
-        status: "completed",
-        statusLabel: "تم",
+        columnValues: {},
       },
     ],
   },
@@ -132,63 +97,12 @@ const taskGroups: TaskGroup[] = [
     totalCount: 2,
     tasks: [
       {
-        id: "9",
+        id: "3",
         title: "مستحقات مختار",
         subtasksCount: 0,
         subtasksCompleted: 0,
         assignees: [],
-        status: "completed",
-        statusLabel: "تم",
-      },
-      {
-        id: "10",
-        title: "مخالصة مها الصعب",
-        subtasksCount: 0,
-        subtasksCompleted: 0,
-        assignees: [],
-        status: "completed",
-        statusLabel: "تم",
-      },
-    ],
-  },
-  {
-    id: "onboarding",
-    name: "تهيئة الموظفين الجدد",
-    color: "#FF5722",
-    completedCount: 20,
-    totalCount: 23,
-    tasks: [
-      {
-        id: "11",
-        title: "تجهيز نموذج وإرسال شهادة من حصول القمي على شهادة اختصاصي صحية",
-        subtasksCount: 0,
-        subtasksCompleted: 0,
-        assignees: [{ initials: "", color: "bg-gray-400" }],
-        status: "completed",
-        statusLabel: "تم",
-        dueDate: "18 Oct, 2025",
-      },
-      {
-        id: "12",
-        title: "ارسال ايميل بيانات الموظفين الجدد للمسؤول في الشركة",
-        subtasksCount: 0,
-        subtasksCompleted: 0,
-        assignees: [{ initials: "MA", color: "bg-purple-500" }],
-        status: "completed",
-        statusLabel: "تم",
-        dueDate: "13 Oct, 2025",
-        dateRange: "06-Oct - 13-Oct",
-      },
-      {
-        id: "13",
-        title: "خطة تدريب وتأهيل للموظفين الجدد",
-        subtasksCount: 0,
-        subtasksCompleted: 0,
-        assignees: [{ initials: "", color: "bg-purple-500" }],
-        status: "completed",
-        statusLabel: "تم",
-        dueDate: "24 Oct, 2025",
-        dateRange: "06-Oct - 16-Oct",
+        columnValues: {},
       },
     ],
   },
@@ -212,8 +126,144 @@ const timelineSteps = [
 ];
 
 export default function Tasks() {
-  const [expandedGroups, setExpandedGroups] = useState<string[]>(["recruitment", "dues", "onboarding"]);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(["recruitment", "dues"]);
   const [activeTab, setActiveTab] = useState("task");
+  const [columns, setColumns] = useState<CustomColumn[]>([]);
+  const [taskGroups, setTaskGroups] = useState<TaskGroup[]>(mockGroups);
+  const [currentBoardId, setCurrentBoardId] = useState<string>("");
+
+  useEffect(() => {
+    initializeBoard();
+  }, []);
+
+  const initializeBoard = async () => {
+    let { data: boards, error: boardError } = await supabase
+      .from("boards")
+      .select("*")
+      .limit(1)
+      .maybeSingle();
+
+    if (!boards) {
+      const { data: newBoard, error: createError } = await supabase
+        .from("boards")
+        .insert([{ name: "أكتوبر", description: "Add board description" }])
+        .select()
+        .single();
+
+      if (createError) {
+        console.error("Error creating board:", createError);
+        return;
+      }
+      boards = newBoard;
+
+      const defaultColumns = [
+        { board_id: boards.id, name: "Rating", column_type: "rating", order_index: 0 },
+        { board_id: boards.id, name: "Number", column_type: "number", order_index: 1 },
+        { board_id: boards.id, name: "Location", column_type: "location", order_index: 2 },
+        { board_id: boards.id, name: "Email", column_type: "email", order_index: 3 },
+        { board_id: boards.id, name: "Priority", column_type: "priority", order_index: 4 },
+      ];
+
+      await supabase.from("custom_columns").insert(defaultColumns);
+    }
+
+    setCurrentBoardId(boards.id);
+    loadColumns(boards.id);
+  };
+
+  const loadColumns = async (boardId: string) => {
+    const { data, error } = await supabase
+      .from("custom_columns")
+      .select("*")
+      .eq("board_id", boardId)
+      .order("order_index", { ascending: true });
+
+    if (error) {
+      console.error("Error loading columns:", error);
+      return;
+    }
+
+    setColumns(data || []);
+  };
+
+  const handleAddColumn = async (name: string, type: string) => {
+    if (!currentBoardId) return;
+
+    const { data, error } = await supabase
+      .from("custom_columns")
+      .insert([
+        {
+          board_id: currentBoardId,
+          name,
+          column_type: type,
+          order_index: columns.length,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add column",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setColumns([...columns, data]);
+    toast({
+      title: "Column Added",
+      description: `${name} column has been added successfully`,
+    });
+  };
+
+  const handleDeleteColumn = async (columnId: string) => {
+    const { error } = await supabase
+      .from("custom_columns")
+      .delete()
+      .eq("id", columnId);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete column",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setColumns(columns.filter((col) => col.id !== columnId));
+    toast({
+      title: "Column Deleted",
+      description: "Column has been removed",
+    });
+  };
+
+  const handleUpdateColumnValue = async (
+    taskId: string,
+    columnId: string,
+    value: any
+  ) => {
+    setTaskGroups((prev) =>
+      prev.map((group) => ({
+        ...group,
+        tasks: group.tasks.map((task) =>
+          task.id === taskId
+            ? {
+                ...task,
+                columnValues: { ...task.columnValues, [columnId]: value },
+              }
+            : task
+        ),
+      }))
+    );
+
+    toast({
+      title: "Value Updated",
+      description: "Column value has been saved",
+    });
+  };
 
   const toggleGroup = (groupId: string) => {
     setExpandedGroups((prev) =>
@@ -223,20 +273,39 @@ export default function Tasks() {
     );
   };
 
-  const getStatusStyles = (status: Task["status"]) => {
-    switch (status) {
-      case "completed":
-        return "bg-status-completed text-white";
-      case "pending":
-        return "bg-status-pending text-white";
-      case "in-progress":
-        return "bg-status-pending text-white";
-      case "overdue":
-        return "bg-status-overdue text-white";
+  const renderColumnCell = (
+    task: Task,
+    column: CustomColumn
+  ) => {
+    const value = task.columnValues[column.id];
+
+    const props = {
+      value,
+      onChange: (newValue: any) =>
+        handleUpdateColumnValue(task.id, column.id, newValue),
+      columnType: column.column_type,
+    };
+
+    switch (column.column_type) {
+      case "number":
+        return <NumberColumn {...props} />;
+      case "email":
+        return <EmailColumn {...props} />;
+      case "rating":
+        return <RatingColumn {...props} />;
+      case "priority":
+        return <PriorityColumn {...props} />;
+      case "location":
+        return <LocationColumn {...props} />;
+      case "date":
+        return <DateColumn {...props} />;
+      case "text":
       default:
-        return "bg-muted text-muted-foreground";
+        return <TextColumn {...props} />;
     }
   };
+
+  const gridColsClass = `grid-cols-[auto,1fr,100px,80px,${columns.map(() => "minmax(120px,1fr)").join(",")},60px]`;
 
   return (
     <div className="p-6 space-y-6">
@@ -298,9 +367,6 @@ export default function Tasks() {
           <button className="p-2 rounded-lg border border-border hover:bg-muted transition-colors">
             <Download className="w-4 h-4" />
           </button>
-          <button className="p-2 rounded-lg border border-border hover:bg-muted transition-colors">
-            <Download className="w-4 h-4" />
-          </button>
         </div>
       </div>
 
@@ -308,7 +374,7 @@ export default function Tasks() {
       <div className="relative py-6 px-8 bg-card rounded-lg card-shadow">
         <div className="absolute inset-x-8 top-1/2 h-1 bg-gray-200 -translate-y-1/2" />
         <div className="relative flex items-center justify-between">
-          {timelineSteps.map((step, i) => (
+          {timelineSteps.map((step) => (
             <div key={step.id} className="flex flex-col items-center gap-2">
               <div
                 className={cn(
@@ -334,145 +400,146 @@ export default function Tasks() {
       </div>
 
       {/* Task Table */}
-      <div className="bg-card rounded-lg card-shadow-md overflow-hidden">
+      <div className="bg-card rounded-lg card-shadow-md overflow-x-auto">
         {/* Table Header */}
-        <div className="grid grid-cols-[auto,1fr,100px,80px,100px,140px,100px,60px,60px] gap-2 px-4 py-3 border-b border-border bg-muted/50 text-sm font-medium text-muted-foreground">
-          <div className="w-8" />
-          <div className="flex items-center gap-2">
-            <Link2 className="w-4 h-4" />
-            Tasks
+        <div className="min-w-max">
+          <div
+            className="grid gap-2 px-4 py-3 border-b border-border bg-muted/50 text-sm font-medium text-muted-foreground"
+            style={{
+              gridTemplateColumns: `auto 1fr 100px 80px ${columns.map(() => "minmax(140px, 1fr)").join(" ")} 60px`,
+            }}
+          >
+            <div className="w-8" />
+            <div className="flex items-center gap-2">
+              <Link2 className="w-4 h-4" />
+              Tasks
+            </div>
+            <div>Subtasks</div>
+            <div>الأشخاص</div>
+            {columns.map((column) => (
+              <div key={column.id} className="flex items-center justify-between">
+                <span>{column.name}</span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="p-1 rounded hover:bg-muted opacity-0 group-hover:opacity-100">
+                      <MoreHorizontal className="w-4 h-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem>
+                      <Edit2 className="w-4 h-4 mr-2" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleDeleteColumn(column.id)}
+                      className="text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            ))}
+            <div className="flex items-center justify-center">
+              <AddColumnDialog onAdd={handleAddColumn} />
+            </div>
           </div>
-          <div>Subtasks</div>
-          <div>الأشخاص</div>
-          <div>الحالة</div>
-          <div>التاريخ</div>
-          <div>الوقت</div>
-          <div>ملف</div>
-          <div className="flex items-center justify-center">
-            <Plus className="w-4 h-4" />
-          </div>
-        </div>
 
-        {/* Task Groups */}
-        {taskGroups.map((group) => (
-          <div key={group.id}>
-            {/* Group Header */}
-            <button
-              onClick={() => toggleGroup(group.id)}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors border-b border-border"
-            >
-              <ChevronDown
-                className={cn(
-                  "w-4 h-4 transition-transform",
-                  !expandedGroups.includes(group.id) && "-rotate-90"
-                )}
-              />
-              <span
-                className="px-2 py-1 rounded text-white text-xs font-medium flex items-center gap-1"
-                style={{ backgroundColor: group.color }}
+          {/* Task Groups */}
+          {taskGroups.map((group) => (
+            <div key={group.id}>
+              {/* Group Header */}
+              <button
+                onClick={() => toggleGroup(group.id)}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors border-b border-border"
               >
-                <MoreHorizontal className="w-3 h-3" />
-                {group.name}
-              </span>
-              <span className="text-sm text-muted-foreground">
-                {group.completedCount}/{group.totalCount}
-              </span>
-              <span className="text-xs text-muted-foreground">Tasks</span>
-            </button>
+                <ChevronDown
+                  className={cn(
+                    "w-4 h-4 transition-transform",
+                    !expandedGroups.includes(group.id) && "-rotate-90"
+                  )}
+                />
+                <span
+                  className="px-2 py-1 rounded text-white text-xs font-medium flex items-center gap-1"
+                  style={{ backgroundColor: group.color }}
+                >
+                  <MoreHorizontal className="w-3 h-3" />
+                  {group.name}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  {group.completedCount}/{group.totalCount}
+                </span>
+                <span className="text-xs text-muted-foreground">Tasks</span>
+              </button>
 
-            {/* Tasks */}
-            {expandedGroups.includes(group.id) && (
-              <div
-                className="border-l-4"
-                style={{ borderLeftColor: group.color }}
-              >
-                {group.tasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className="grid grid-cols-[auto,1fr,100px,80px,100px,140px,100px,60px,60px] gap-2 px-4 py-3 border-b border-border hover:bg-muted/30 transition-colors items-center"
-                  >
-                    <div className="w-8 flex items-center justify-center">
-                      <input type="checkbox" className="rounded border-gray-300" />
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-foreground">
-                      {task.title}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center text-xs text-muted-foreground bg-white">
-                        {task.subtasksCount}
-                      </span>
-                      <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
-                        <Plus className="w-3 h-3" />
-                        {task.subtasksCompleted}
-                      </span>
-                    </div>
-                    <div className="flex -space-x-1">
-                      {task.assignees.length > 0 ? (
-                        task.assignees.map((assignee, i) => (
-                          <Avatar key={i} className="h-7 w-7 border-2 border-white">
-                            <AvatarFallback className={cn("text-white text-[10px]", assignee.color)}>
-                              {assignee.initials || <MessageSquare className="w-3 h-3" />}
+              {/* Tasks */}
+              {expandedGroups.includes(group.id) && (
+                <div
+                  className="border-l-4"
+                  style={{ borderLeftColor: group.color }}
+                >
+                  {group.tasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="grid gap-2 px-4 py-3 border-b border-border hover:bg-muted/30 transition-colors items-center group"
+                      style={{
+                        gridTemplateColumns: `auto 1fr 100px 80px ${columns.map(() => "minmax(140px, 1fr)").join(" ")} 60px`,
+                      }}
+                    >
+                      <div className="w-8 flex items-center justify-center">
+                        <input type="checkbox" className="rounded border-gray-300" />
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-foreground">
+                        {task.title}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center text-xs text-muted-foreground bg-white">
+                          {task.subtasksCount}
+                        </span>
+                        <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                          <Plus className="w-3 h-3" />
+                          {task.subtasksCompleted}
+                        </span>
+                      </div>
+                      <div className="flex -space-x-1">
+                        {task.assignees.length > 0 ? (
+                          task.assignees.map((assignee, i) => (
+                            <Avatar key={i} className="h-7 w-7 border-2 border-white">
+                              <AvatarFallback className={cn("text-white text-[10px]", assignee.color)}>
+                                {assignee.initials || <MessageSquare className="w-3 h-3" />}
+                              </AvatarFallback>
+                            </Avatar>
+                          ))
+                        ) : (
+                          <Avatar className="h-7 w-7 border-2 border-white">
+                            <AvatarFallback className="bg-gray-300 text-gray-500">
+                              <MessageSquare className="w-3 h-3" />
                             </AvatarFallback>
                           </Avatar>
-                        ))
-                      ) : (
-                        <Avatar className="h-7 w-7 border-2 border-white">
-                          <AvatarFallback className="bg-gray-300 text-gray-500">
-                            <MessageSquare className="w-3 h-3" />
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-                    </div>
-                    <div>
-                      <span
-                        className={cn(
-                          "px-3 py-1 rounded text-xs font-medium",
-                          getStatusStyles(task.status)
                         )}
-                      >
-                        {task.statusLabel}
-                      </span>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {task.dueDate && <span>{task.dueDate}</span>}
-                    </div>
-                    <div>
-                      {task.dateRange ? (
-                        <span className="px-2 py-1 rounded bg-status-completed text-white text-xs">
-                          {task.dateRange}
-                        </span>
-                      ) : (
-                        <button className="p-1 rounded hover:bg-muted">
-                          <Plus className="w-4 h-4 text-muted-foreground" />
-                        </button>
-                      )}
-                    </div>
-                    <div>
-                      {task.hasFile ? (
-                        <button className="p-1 rounded hover:bg-muted">
-                          <FileText className="w-4 h-4 text-chart-blue" />
-                        </button>
-                      ) : (
+                      </div>
+                      {columns.map((column) => (
+                        <div key={column.id}>
+                          {renderColumnCell(task, column)}
+                        </div>
+                      ))}
+                      <div>
                         <button className="p-1 rounded hover:bg-muted">
                           <Users className="w-4 h-4 text-muted-foreground" />
                         </button>
-                      )}
+                      </div>
                     </div>
-                    <div>
-                      <button className="p-1 rounded hover:bg-muted">
-                        <Users className="w-4 h-4 text-muted-foreground" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                {/* Add Task Row */}
-                <button className="w-full px-4 py-3 text-left text-sm text-muted-foreground hover:bg-muted/30 transition-colors border-b border-border">
-                  Add new task
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
+                  ))}
+                  {/* Add Task Row */}
+                  <button className="w-full px-4 py-3 text-left text-sm text-muted-foreground hover:bg-muted/30 transition-colors border-b border-border">
+                    Add new task
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
