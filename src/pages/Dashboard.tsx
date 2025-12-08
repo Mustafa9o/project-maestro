@@ -49,25 +49,23 @@ export default function Dashboard() {
       </div>
 
       {/* Widgets Grid - Row 1 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         <TaskStatusWidget />
         <EventCalendarWidget />
         <RecentUpdatesWidget />
-        <div className="hidden xl:block">
-          <div className="bg-card rounded-lg p-4 card-shadow-md h-full flex flex-col items-center justify-center text-muted-foreground">
-            <p className="text-sm">Recent Post</p>
-          </div>
-        </div>
         <NewTasksWidget />
+        <PendingTasksWidget />
       </div>
 
       {/* Widgets Grid - Row 2 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-        <PendingTasksWidget />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         <TodoListWidget />
         <ProjectStatusWidget />
         <BoardDeadlineWidget />
         <BestPerformerWidget />
+        <div className="bg-card rounded-lg p-4 card-shadow-md h-full flex flex-col items-center justify-center text-muted-foreground border border-dashed border-border">
+          <p className="text-sm">+ Add Widget</p>
+        </div>
       </div>
     </div>
   );
